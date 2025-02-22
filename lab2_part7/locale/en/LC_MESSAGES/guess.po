@@ -1,0 +1,22 @@
+msgid "Загадайте число от 1 до 100."
+msgstr "Think of a number between 1 and 100."
+
+
+msgid "Я буду задавать вопросы. Отвечайте 'да', 'нет' или 'больше'."
+msgstr "I will ask questions. Answer 'yes', 'no', or 'greater'."
+
+
+msgid "Число больше %d? (да/нет)"
+msgstr "Is the number greater than %d? (yes/no)"
+
+
+msgid "Ошибка ввода. Попробуйте снова."
+msgstr "Input error. Try again."
+
+
+msgid "Неправильный ответ. Пожалуйста, ответьте 'да' или 'нет'."
+msgstr "Incorrect answer. Please answer 'yes' or 'no'."
+
+
+msgid "Ваше число: %d"
+msgstr "Your number is: %d"

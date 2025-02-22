@@ -1,0 +1,3 @@
+/home/user/MyGitProject/lab2_part7/build/CMakeFiles/guess.dir
+/home/user/MyGitProject/lab2_part7/build/CMakeFiles/edit_cache.dir
+/home/user/MyGitProject/lab2_part7/build/CMakeFiles/rebuild_cache.dir
