@@ -4,7 +4,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <ncurses.h>
+#include <locale.h>
+#include <ncursesw/ncurses.h> // Используем wide ncurses
 
 using namespace std;
 
@@ -41,31 +42,35 @@ wstring map =
 
 // Функция инициализации цветов
 void InitColors() {
-    start_color();
-    init_pair(1, COLOR_WHITE, COLOR_BLACK);   // Цвет стен
-    init_pair(2, COLOR_GREEN, COLOR_BLACK);   // Цвет игрока
-    init_pair(3, COLOR_BLUE, COLOR_BLACK);    // Цвет пола
-    init_pair(4, COLOR_RED, COLOR_BLACK);     // Темные стены (дальний вид)
+    if (has_colors()) {
+        start_color();
+        init_pair(1, COLOR_WHITE, COLOR_BLACK); // Стены
+        init_pair(2, COLOR_GREEN, COLOR_BLACK); // Игрок
+        init_pair(3, COLOR_YELLOW, COLOR_BLACK); // Пустые пространства (мини-карта)
+    }
 }
 
-// Функция отрисовки мини-карты
+// Функция отрисовки мини-карты (корректное позиционирование)
 void DrawMiniMap() {
     for (int y = 0; y < nMapHeight; y++) {
         for (int x = 0; x < nMapWidth; x++) {
-            attron(COLOR_PAIR(1));
-            mvprintw(y + 1, x + 1, "%c", map[y * nMapWidth + x]);
-            attroff(COLOR_PAIR(1));
+            if (map[y * nMapWidth + x] == '#') {
+                attron(COLOR_PAIR(1));
+                mvprintw(y, x, "#");
+                attroff(COLOR_PAIR(1));
+            } else {
+                attron(COLOR_PAIR(3));
+                mvprintw(y, x, "·"); // Точки вместо пустых пространств
+                attroff(COLOR_PAIR(3));
+            }
         }
     }
     attron(COLOR_PAIR(2));
-    mvprintw(fPlayerY + 1, fPlayerX + 1, "P"); // Отображение игрока
+    mvprintw(fPlayerY, fPlayerX, "P"); // Отображение игрока
     attroff(COLOR_PAIR(2));
-
-    // Отображение координат и угла поворота
-    mvprintw(nMapHeight + 2, 1, "X=%d, Y=%d, Angle=%.1f deg", fPlayerX, fPlayerY, fPlayerA * 180 / PI);
 }
 
-// Функция отрисовки 3D-сцены
+// Функция отрисовки 3D-сцены (Используем wide-символы)
 void Draw3D(wchar_t* screen) {
     for (int x = 0; x < nScreenWidth; x++) {
         float fRayAngle = (fPlayerA - fFOV / 2.0f) + ((float)x / nScreenWidth) * fFOV;
@@ -81,7 +86,7 @@ void Draw3D(wchar_t* screen) {
             int nTestX = (int)(fPlayerX + fEyeX * fDistanceToWall);
             int nTestY = (int)(fPlayerY + fEyeY * fDistanceToWall);
 
-            if (nTestX < 0 || nTestX >= nMapWidth || nTestY < 0 || nTestY >= nMapHeight) {
+            if (nTestX < 0 || nTestX >= nMapWidth ||  nTestY < 0 || nTestY >= nMapHeight) {
                 bHitWall = true;
                 fDistanceToWall = fDepth;
             } else {
@@ -96,19 +101,13 @@ void Draw3D(wchar_t* screen) {
 
         for (int y = 0; y < nScreenHeight; y++) {
             if (y <= nCeiling) {
-                attron(COLOR_PAIR(3)); // Пол
-                screen[y * nScreenWidth + x] = ' ';
-                attroff(COLOR_PAIR(3));
+                screen[y * nScreenWidth + x] = L' ';
             } else if (y > nCeiling && y <= nFloor) {
-                attron(fDistanceToWall < fDepth / 2.0 ? COLOR_PAIR(1) : COLOR_PAIR(4));
-                screen[y * nScreenWidth + x] = (fDistanceToWall < fDepth / 3.0) ? '█' :
-                                               (fDistanceToWall < fDepth / 2.0) ? '▓' :
-                                               (fDistanceToWall < fDepth) ? '▒' : '░';
-                attroff(fDistanceToWall < fDepth / 2.0 ? COLOR_PAIR(1) : COLOR_PAIR(4));
+                screen[y * nScreenWidth + x] = (fDistanceToWall < fDepth / 3.0) ? L'█' :
+                                               (fDistanceToWall < fDepth / 2.0) ? L'▓' :
+                                               (fDistanceToWall < fDepth) ? L'▒' : L'░';
             } else {
-                attron(COLOR_PAIR(3)); // Потолок
-                screen[y * nScreenWidth + x] = '.';
-                attroff(COLOR_PAIR(3));
+                screen[y * nScreenWidth + x] = L' '; // Черный пол
             }
         }
     }
@@ -117,36 +116,35 @@ void Draw3D(wchar_t* screen) {
 // Функция отрисовки экрана
 void DrawScreen(wchar_t* screen) {
     clear();
+    DrawMiniMap();
+    Draw3D(screen);
 
-    DrawMiniMap(); // Отрисовка мини-карты
-    Draw3D(screen); // Отрисовка 3D-сцены
-// Вывод 3D-изображения справа от мини-карты
     for (int y = 0; y < nScreenHeight; y++) {
         for (int x = 0; x < nScreenWidth; x++) {
-            mvaddch(y, x + nMapWidth + 4, screen[y * nScreenWidth + x]);
+            mvaddwstr(y, x + nMapWidth + 4, &screen[y * nScreenWidth + x]);
         }
     }
     refresh();
 }
 
 int main() {
+    setlocale(LC_ALL, "");  // Поддержка Unicode
     initscr();
     noecho();
     curs_set(0);
     keypad(stdscr, TRUE);
 
-    InitColors(); // Инициализация цветов
-
-    wchar_t* screen = new wchar_t[nScreenWidth * nScreenHeight];
+    InitColors();
+wchar_t* screen = new wchar_t[nScreenWidth * nScreenHeight];
 
     while (true) {
         int ch = getch();
-        if (ch == 'q') break; // Выход
+        if (ch == 'q') break;
 
-        if (ch == 'a') fPlayerA -= TURN_ANGLE; // Поворот на -45°
-        if (ch == 'd') fPlayerA += TURN_ANGLE; // Поворот на +45°
+        if (ch == 'a') fPlayerA -= TURN_ANGLE;
+        if (ch == 'd') fPlayerA += TURN_ANGLE;
 
-        if (fPlayerA < 0) fPlayerA += 2 * PI;  
+        if (fPlayerA < 0) fPlayerA += 2 * PI;
         if (fPlayerA >= 2 * PI) fPlayerA -= 2 * PI;
 
         int fNewX = fPlayerX;
